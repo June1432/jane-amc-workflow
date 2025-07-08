@@ -1,3 +1,4 @@
+# JANE PMS Dashboard v3 - Enhanced Version with Ops, Compliance, Fund Accounting (Corrected)
 
 import streamlit as st
 import pandas as pd
@@ -82,66 +83,47 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Data')
     return output.getvalue()
 
-# ------------------------ Views ------------------------ #
-def fm_view():
-    selected = st.selectbox("Select Fund Manager:", fms)
-    df = filtered_data[filtered_data['FM'] == selected]
-    st.title(f"Fund Manager | {selected}")
-    st.metric("Total AUM (₹ Cr)", f"{df['Capital (₹ Lakhs)'].sum() / 100:.2f}")
-    st.plotly_chart(px.bar(df, x="Name", y="Capital (₹ Lakhs)", title="Client Capital"))
-    st.plotly_chart(px.pie(df, names='Strategy', title='Strategy Allocation'))
-    st.plotly_chart(px.line(df, x='Name', y=['NAV'], title='NAV Trend'))
-    st.download_button("Download FM Data", data=to_excel(df), file_name="FM_Report.xlsx")
-
-def rm_view():
-    selected = st.selectbox("Select RM:", rms)
-    df = filtered_data[filtered_data['RM'] == selected]
-    st.title(f"Relationship Manager | {selected}")
-    st.metric("Total Clients", len(df))
-    st.plotly_chart(px.pie(df, names='Risk Profile', title='Risk Profile Distribution'))
-    st.dataframe(df[["Client ID", "Name", "Strategy", "TWR (%)", "CAGR", "IRR"]])
-    st.download_button("Download RM Data", data=to_excel(df), file_name="RM_Report.xlsx")
-
-def sm_view():
-    selected = st.selectbox("Select SM:", ["Rohit Sinha", "Kiran Shetty"])
-    df = filtered_data[filtered_data['SM'] == selected]
-    st.title(f"Service Manager | {selected}")
-    st.metric("Client Base Size", len(df))
-    st.plotly_chart(px.bar(df, x="Country", title="Geographic Spread"))
-    st.dataframe(df[["Client ID", "Name", "Country", "Custodian", "Bank Account"]])
-    st.download_button("Download SM Data", data=to_excel(df), file_name="SM_Report.xlsx")
-
-def distributor_view():
-    selected = st.selectbox("Select Distributor:", distributors)
-    df = filtered_data[filtered_data['Distributor'] == selected]
-    st.title(f"Distributor | {selected}")
-    st.plotly_chart(px.bar(df, x='Name', y='Capital (₹ Lakhs)', title="Capital Brought In"))
-    st.plotly_chart(px.pie(df, names='Strategy', title='Client Strategy Split'))
-    st.dataframe(df[["Client ID", "Name", "Country", "Capital (₹ Lakhs)"]])
-    st.download_button("Download Distributor Data", data=to_excel(df), file_name="Distributor_Report.xlsx")
-
-def operations_view():
-    st.title("Operations Team Dashboard")
-    st.metric("Total Accounts Opened", len(filtered_data))
-    onboarding_kpi = pd.DataFrame({
-        'Client': filtered_data['Name'],
-        'Login Created': np.random.choice(["Yes", "No"], size=len(filtered_data))
-    })
-    st.dataframe(onboarding_kpi)
-
+# ------------------------ Compliance View ------------------------ #
 def compliance_view():
     st.title("Compliance Team Dashboard")
     st.metric("PEP Clients", sum(filtered_data['PEP'] == 'Yes'))
-    st.plotly_chart(px.pie(filtered_data, names='Country', title='Country Risk Distribution'))
+
+    complaint_kpi = pd.DataFrame({
+        'Client': filtered_data['Name'],
+        'Complaint Type': np.random.choice(['Delay', 'Disclosure', 'Mis-selling', 'Redemption', 'Others'], len(filtered_data)),
+        'Complaint Date': pd.date_range(start='2024-01-01', periods=len(filtered_data)),
+        'Resolved': np.random.choice(['Yes', 'No'], len(filtered_data)),
+        'Resolution Time (Days)': np.random.randint(1, 60, len(filtered_data))
+    })
+
+    st.subheader("Complaint Summary (as per SEBI SCORES)")
+    st.dataframe(complaint_kpi)
+    st.plotly_chart(px.pie(complaint_kpi, names='Resolved', title='Resolution Status'))
+    st.plotly_chart(px.bar(complaint_kpi, x='Complaint Type', title='Complaints by Type'))
+    
+    st.subheader("Client Regulatory Flags")
     st.dataframe(filtered_data[['Client ID', 'Name', 'PEP', 'Country', 'PIS No']])
 
+# ------------------------ Fund Accounting View ------------------------ #
 def fund_accounting_view():
     st.title("Fund Accounting Dashboard")
-    df = filtered_data
-    df['Brokerage (%)'] = np.round(np.random.uniform(0.25, 0.75, len(df)), 2)
-    df['Billing Forecast (₹ Lakhs)'] = df['Capital (₹ Lakhs)'] * df['Brokerage (%)'] / 100
-    st.plotly_chart(px.line(df, x='Name', y='NAV', title='NAV Movement'))
-    st.dataframe(df[['Client ID', 'Name', 'Capital (₹ Lakhs)', 'NAV', 'Brokerage (%)', 'Billing Forecast (₹ Lakhs)']])
+    df = filtered_data.copy()
+
+    df['Unrealized Gains (₹)'] = df['NAV'] - df['Capital (₹ Lakhs)']
+    df['Realized Gains (₹)'] = np.round(df['Capital (₹ Lakhs)'] * 0.03, 2)
+    df['Accrued Fees (%)'] = np.round(np.random.uniform(0.25, 1.25, len(df)), 2)
+    df['Management Fee (₹ Lakhs)'] = df['Capital (₹ Lakhs)'] * df['Accrued Fees (%)'] / 100
+    df['GST (%)'] = 18.0
+    df['GST on Fee'] = (df['Management Fee (₹ Lakhs)'] * df['GST (%)']) / 100
+    df['NAV Date'] = datetime.date.today()
+
+    st.plotly_chart(px.bar(df, x='Name', y='NAV', title='Latest NAV by Client'))
+    st.plotly_chart(px.pie(df, names='Strategy', title='Allocation by Strategy'))
+
+    st.subheader("Valuation & Fee Snapshot")
+    st.dataframe(df[['Client ID', 'Name', 'Capital (₹ Lakhs)', 'NAV', 'Unrealized Gains (₹)',
+                    'Realized Gains (₹)', 'Accrued Fees (%)', 'Management Fee (₹ Lakhs)',
+                    'GST on Fee', 'NAV Date']])
 
 # ------------------------ Routing ------------------------ #
 if role == "Fund Manager":
@@ -160,4 +142,4 @@ elif role == "Fund Accounting":
     fund_accounting_view()
 
 st.markdown("---")
-st.markdown("This dashboard simulates a real-time PMS application aligned with SEBI PMS Regulations 2020 and RBI norms.")
+st.markdown("This dashboard simulates a real-time PMS application aligned with SEBI PMS Regulations 2020, RBI norms, and AMFI SCORES framework.")
