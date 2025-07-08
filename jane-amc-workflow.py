@@ -1,4 +1,4 @@
-# JANE PMS Dashboard v3 - Streamlit App
+# JANE PMS Dashboard v3 - Enhanced Version with Ops, Compliance, Fund Accounting
 
 import streamlit as st
 import pandas as pd
@@ -13,7 +13,10 @@ st.set_page_config(page_title="JANE PMS Dashboard", layout="wide")
 
 # ------------------------ Sidebar ------------------------ #
 st.sidebar.title("JANE PMS Dashboard")
-role = st.sidebar.radio("Select Role", ["Fund Manager", "Relationship Manager", "Service Manager", "Distributor"])
+role = st.sidebar.radio("Select Role", [
+    "Fund Manager", "Relationship Manager", "Service Manager",
+    "Distributor", "Operations", "Compliance", "Fund Accounting"])
+
 start_filter = st.sidebar.date_input("Start Date", value=datetime.date(2023, 1, 1))
 end_filter = st.sidebar.date_input("End Date", value=datetime.date(2025, 12, 31))
 
@@ -27,6 +30,7 @@ clients = [f"Client {i}" for i in range(1, 11)]
 def get_client_data():
     start_dates = [datetime.date(2023, 1, i+1) for i in range(10)]
     end_dates = [datetime.date(2025, 1, i+1) for i in range(10)]
+    account_types = np.random.choice(["Resident", "NRE", "NRO"], size=10)
     return pd.DataFrame({
         "Client ID": [f"CID{i}" for i in range(1, 11)],
         "Name": clients,
@@ -40,8 +44,9 @@ def get_client_data():
         "End Date": end_dates,
         "Custodian": np.random.choice(["HDFC Bank", "ICICI Bank"], size=10),
         "Bank Account": [f"XXXX{i}1234" for i in range(10)],
+        "Account Type": account_types,
         "PEP": np.random.choice(["Yes", "No"], size=10),
-        "PIS No": [f"PIS00{i}" for i in range(10)],
+        "PIS No": [f"PIS00{i}" if acct in ["NRE", "NRO"] else "" for i, acct in enumerate(account_types)],
         "Country": np.random.choice(["India", "UAE", "Singapore", "UK"], size=10),
         "FM": np.random.choice(fms, size=10),
         "RM": np.random.choice(rms, size=10),
@@ -78,7 +83,7 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Data')
     return output.getvalue()
 
-# ------------------------ Role-Specific Dashboards ------------------------ #
+# ------------------------ Views ------------------------ #
 def fm_view():
     selected = st.selectbox("Select Fund Manager:", fms)
     df = filtered_data[filtered_data['FM'] == selected]
@@ -116,7 +121,30 @@ def distributor_view():
     st.dataframe(df[["Client ID", "Name", "Country", "Capital (₹ Lakhs)"]])
     st.download_button("Download Distributor Data", data=to_excel(df), file_name="Distributor_Report.xlsx")
 
-# ------------------------ Main Logic ------------------------ #
+def operations_view():
+    st.title("Operations Team Dashboard")
+    st.metric("Total Accounts Opened", len(filtered_data))
+    onboarding_kpi = pd.DataFrame({
+        'Client': filtered_data['Name'],
+        'Login Created': np.random.choice(["Yes", "No"], size=len(filtered_data))
+    })
+    st.dataframe(onboarding_kpi)
+
+def compliance_view():
+    st.title("Compliance Team Dashboard")
+    st.metric("PEP Clients", sum(filtered_data['PEP'] == 'Yes'))
+    st.plotly_chart(px.pie(filtered_data, names='Country', title='Country Risk Distribution'))
+    st.dataframe(filtered_data[['Client ID', 'Name', 'PEP', 'Country', 'PIS No']])
+
+def fund_accounting_view():
+    st.title("Fund Accounting Dashboard")
+    df = filtered_data
+    df['Brokerage (%)'] = np.round(np.random.uniform(0.25, 0.75, len(df)), 2)
+    df['Billing Forecast (₹ Lakhs)'] = df['Capital (₹ Lakhs)'] * df['Brokerage (%)'] / 100
+    st.plotly_chart(px.line(df, x='Name', y='NAV', title='NAV Movement'))
+    st.dataframe(df[['Client ID', 'Name', 'Capital (₹ Lakhs)', 'NAV', 'Brokerage (%)', 'Billing Forecast (₹ Lakhs)']])
+
+# ------------------------ Routing ------------------------ #
 if role == "Fund Manager":
     fm_view()
 elif role == "Relationship Manager":
@@ -125,6 +153,12 @@ elif role == "Service Manager":
     sm_view()
 elif role == "Distributor":
     distributor_view()
+elif role == "Operations":
+    operations_view()
+elif role == "Compliance":
+    compliance_view()
+elif role == "Fund Accounting":
+    fund_accounting_view()
 
 st.markdown("---")
-st.markdown("This application is a simulation prototype compliant with SEBI PMS Regulations 2020.")
+st.markdown("This dashboard simulates a real-time PMS application aligned with SEBI PMS Regulations 2020 and RBI norms.")
