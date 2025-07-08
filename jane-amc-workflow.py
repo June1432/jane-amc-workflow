@@ -1,19 +1,23 @@
+# JANE PMS Dashboard v3 - Streamlit App
+
 import streamlit as st
 import pandas as pd
 import numpy as np
+import numpy_financial as npf
+import plotly.express as px
 import datetime
 from io import BytesIO
-import numpy_financial as npf
 
+# ------------------------ Page Config ------------------------ #
 st.set_page_config(page_title="JANE PMS Dashboard", layout="wide")
 
-st.sidebar.title("Select Role View")
-role = st.sidebar.selectbox("User Role:", ["Fund Manager", "Relationship Manager", "Service Manager", "Distributor"])
-
-st.sidebar.markdown("### Filter by Date Range")
+# ------------------------ Sidebar ------------------------ #
+st.sidebar.title("JANE PMS Dashboard")
+role = st.sidebar.radio("Select Role", ["Fund Manager", "Relationship Manager", "Service Manager", "Distributor"])
 start_filter = st.sidebar.date_input("Start Date", value=datetime.date(2023, 1, 1))
 end_filter = st.sidebar.date_input("End Date", value=datetime.date(2025, 12, 31))
 
+# ------------------------ Dummy Data ------------------------ #
 rms = ["Ravi Mehta", "Neha Sharma", "Arjun Iyer", "Divya Rao", "Kunal Singh"]
 fms = ["Rahul Khanna", "Sneha Desai", "Amit Verma", "Priya Das", "Vinay Joshi"]
 distributors = ["Motilal", "NJ Wealth", "ICICI Direct", "Axis Capital", "Groww"]
@@ -45,6 +49,7 @@ def get_client_data():
         "Distributor": np.random.choice(distributors, size=10)
     })
 
+# ------------------------ Calculations ------------------------ #
 def calculate_ratios(row, rf=0.05, beta=1.0, mr=0.12):
     returns = row['TWR (%)'] / 100
     volatility = 0.12
@@ -63,76 +68,63 @@ def calculate_irr(row):
 client_data = get_client_data()
 client_data[['Sharpe', 'Treynor', 'Jensen']] = client_data.apply(calculate_ratios, axis=1)
 client_data['IRR'] = client_data.apply(calculate_irr, axis=1)
-
+client_data['CAGR'] = ((client_data['NAV'] / client_data['Capital (₹ Lakhs)']) ** (1/2) - 1) * 100
 filtered_data = client_data[(client_data['Start Date'] >= start_filter) & (client_data['End Date'] <= end_filter)]
 
+# ------------------------ Excel Export ------------------------ #
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sheet1')
-    processed_data = output.getvalue()
-    return processed_data
+        df.to_excel(writer, index=False, sheet_name='Data')
+    return output.getvalue()
 
+# ------------------------ Role-Specific Dashboards ------------------------ #
+def fm_view():
+    selected = st.selectbox("Select Fund Manager:", fms)
+    df = filtered_data[filtered_data['FM'] == selected]
+    st.title(f"Fund Manager | {selected}")
+    st.metric("Total AUM (₹ Cr)", f"{df['Capital (₹ Lakhs)'].sum() / 100:.2f}")
+    st.plotly_chart(px.bar(df, x="Name", y="Capital (₹ Lakhs)", title="Client Capital"))
+    st.plotly_chart(px.pie(df, names='Strategy', title='Strategy Allocation'))
+    st.plotly_chart(px.line(df, x='Name', y=['NAV'], title='NAV Trend'))
+    st.download_button("Download FM Data", data=to_excel(df), file_name="FM_Report.xlsx")
+
+def rm_view():
+    selected = st.selectbox("Select RM:", rms)
+    df = filtered_data[filtered_data['RM'] == selected]
+    st.title(f"Relationship Manager | {selected}")
+    st.metric("Total Clients", len(df))
+    st.plotly_chart(px.pie(df, names='Risk Profile', title='Risk Profile Distribution'))
+    st.dataframe(df[["Client ID", "Name", "Strategy", "TWR (%)", "CAGR", "IRR"]])
+    st.download_button("Download RM Data", data=to_excel(df), file_name="RM_Report.xlsx")
+
+def sm_view():
+    selected = st.selectbox("Select SM:", ["Rohit Sinha", "Kiran Shetty"])
+    df = filtered_data[filtered_data['SM'] == selected]
+    st.title(f"Service Manager | {selected}")
+    st.metric("Client Base Size", len(df))
+    st.plotly_chart(px.bar(df, x="Country", title="Geographic Spread"))
+    st.dataframe(df[["Client ID", "Name", "Country", "Custodian", "Bank Account"]])
+    st.download_button("Download SM Data", data=to_excel(df), file_name="SM_Report.xlsx")
+
+def distributor_view():
+    selected = st.selectbox("Select Distributor:", distributors)
+    df = filtered_data[filtered_data['Distributor'] == selected]
+    st.title(f"Distributor | {selected}")
+    st.plotly_chart(px.bar(df, x='Name', y='Capital (₹ Lakhs)', title="Capital Brought In"))
+    st.plotly_chart(px.pie(df, names='Strategy', title='Client Strategy Split'))
+    st.dataframe(df[["Client ID", "Name", "Country", "Capital (₹ Lakhs)"]])
+    st.download_button("Download Distributor Data", data=to_excel(df), file_name="Distributor_Report.xlsx")
+
+# ------------------------ Main Logic ------------------------ #
 if role == "Fund Manager":
-    selected_fm = st.selectbox("Select Fund Manager:", fms)
-    fm_clients = filtered_data[filtered_data['FM'] == selected_fm]
-    if fm_clients.empty:
-        st.warning("No clients found for this Fund Manager in the selected date range.")
-        st.stop()
-    st.title(f"Fund Manager View - {selected_fm}")
-    col1, col2 = st.columns(2)
-    col1.metric("Total AUM (₹ Cr)", f"{fm_clients['Capital (₹ Lakhs)'].sum() / 100:.2f}")
-    col2.metric("Benchmark Return (Nifty 1Y)", "12.0%")
-    st.subheader("Capital by Client")
-    st.bar_chart(fm_clients.set_index("Name")["Capital (₹ Lakhs)"])
-    st.subheader("Strategy Breakdown")
-    st.bar_chart(fm_clients['Strategy'].value_counts())
-    st.subheader("NAV vs Benchmark")
-    benchmark = pd.Series([120]*len(fm_clients), index=fm_clients['Name'])
-    combined_nav = pd.DataFrame({"NAV": fm_clients['NAV'].values, "Benchmark": benchmark.values}, index=fm_clients['Name'])
-    st.line_chart(combined_nav)
-    st.download_button("Download FM Data (Excel)", data=to_excel(fm_clients), file_name="FM_Report.xlsx")
-
+    fm_view()
 elif role == "Relationship Manager":
-    selected_rm = st.selectbox("Select RM:", rms)
-    rm_clients = filtered_data[filtered_data['RM'] == selected_rm]
-    if rm_clients.empty:
-        st.warning("No clients found for this RM in the selected date range.")
-        st.stop()
-    st.title(f"Relationship Manager View - {selected_rm}")
-    st.subheader("Risk Profile Distribution")
-    st.bar_chart(rm_clients['Risk Profile'].value_counts())
-    st.subheader("Capital by Client")
-    st.bar_chart(rm_clients.set_index("Name")["Capital (₹ Lakhs)"])
-    st.subheader("Assigned Clients")
-    st.dataframe(rm_clients[["Client ID", "Name", "Strategy", "Risk Profile", "TWR (%)", "NAV", "IRR"]])
-    st.download_button("Download RM Data (Excel)", data=to_excel(rm_clients), file_name="RM_Report.xlsx")
-
+    rm_view()
 elif role == "Service Manager":
-    selected_sm = st.selectbox("Select SM:", ["Rohit Sinha", "Kiran Shetty"])
-    sm_clients = filtered_data[filtered_data['SM'] == selected_sm]
-    if sm_clients.empty:
-        st.warning("No clients found for this SM in the selected date range.")
-        st.stop()
-    st.title(f"Service Manager View - {selected_sm}")
-    st.subheader("Client Country Breakdown")
-    st.bar_chart(sm_clients['Country'].value_counts())
-    st.subheader("Client Details")
-    st.dataframe(sm_clients[["Client ID", "Name", "Custodian", "Bank Account", "PEP", "PIS No", "Country"]])
-    st.download_button("Download SM Data (Excel)", data=to_excel(sm_clients), file_name="SM_Report.xlsx")
-
+    sm_view()
 elif role == "Distributor":
-    selected_dist = st.selectbox("Select Distributor:", distributors)
-    dist_clients = filtered_data[filtered_data['Distributor'] == selected_dist]
-    if dist_clients.empty:
-        st.warning("No clients found for this Distributor in the selected date range.")
-        st.stop()
-    st.title(f"Distributor View - {selected_dist}")
-    st.subheader("Strategy Breakdown")
-    st.bar_chart(dist_clients['Strategy'].value_counts())
-    st.subheader("Client List")
-    st.dataframe(dist_clients[["Client ID", "Name", "Capital (₹ Lakhs)", "Country"]])
-    st.download_button("Download Distributor Data (Excel)", data=to_excel(dist_clients), file_name="Distributor_Report.xlsx")
+    distributor_view()
 
 st.markdown("---")
-st.markdown("This dashboard is a simulated proof of concept. Data aligns with SEBI PMS 2020 regulations and internal audit principles.")
+st.markdown("This application is a simulation prototype compliant with SEBI PMS Regulations 2020.")
