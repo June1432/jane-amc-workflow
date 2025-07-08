@@ -2,4 +2,5 @@ streamlit>=1.33.0
 pandas>=2.2.0
 numpy>=1.26.0
 numpy-financial>=1.0.0
+plotly>=5.19.0
 xlsxwriter>=3.1.9
