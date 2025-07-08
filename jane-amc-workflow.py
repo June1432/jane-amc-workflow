@@ -1,4 +1,3 @@
-# JANE PMS Dashboard v3 - Enhanced Version with Ops, Compliance, Fund Accounting
 
 import streamlit as st
 import pandas as pd
