@@ -1,5 +1,4 @@
-# JANE PMS Dashboard v4.2 – Tabbed View with All Functional Roles
-# Enhanced with Role Tabs: FM, RM, SM, Distributor, Operations, Compliance, Fund Accounting, Investor
+# JANE PMS Dashboard v4.3 – Tabbed Wealth Platform with Client-Centric Navigation
 
 import streamlit as st
 import pandas as pd
@@ -76,40 +75,54 @@ st.title("JANE | PMS Enterprise Dashboard")
 
 st.markdown("---")
 
-# Create Tabs per Role
-fm_tab, rm_tab, sm_tab, dist_tab, ops_tab, comp_tab, fa_tab, inv_tab = st.tabs([
-    "Fund Manager", "Relationship Manager", "Service Manager",
-    "Distributor", "Operations", "Compliance", "Fund Accounting", "Investor"
+# Create Tabs for Wealth Management Application
+overview_tab, portfolio_tab, perf_tab, txn_tab, goals_tab, reports_tab, profile_tab, insights_tab, support_tab, tools_tab = st.tabs([
+    "Dashboard", "Portfolio", "Performance", "Transactions", "Goals", "Reports & Statements",
+    "Profile & Settings", "Insights & Research", "Support", "Tools & Calculators"
 ])
 
-with fm_tab:
-    st.subheader("Fund Manager Dashboard")
-    st.dataframe(data[['Client ID', 'Name', 'FM', 'Capital (₹ Lakhs)', 'Strategy', 'Risk Profile', 'NAV', 'TWR (%)', 'MWR (%)', 'Tranche Details']])
+with overview_tab:
+    st.subheader("Client Overview")
+    st.metric("Total Clients", len(data))
+    st.metric("Average NAV", round(data['NAV'].mean(), 2))
+    st.metric("Total Capital Deployed (₹ Lakhs)", round(data['Capital (₹ Lakhs)'].sum(), 2))
+    st.dataframe(data[['Client ID', 'Name', 'Capital (₹ Lakhs)', 'NAV', 'TWR (%)', 'Risk Profile', 'Strategy']])
 
-with rm_tab:
-    st.subheader("Relationship Manager Dashboard")
-    st.dataframe(data[['Client ID', 'Name', 'RM', 'Initial Capital (₹ Lakhs)', 'Capital (₹ Lakhs)', 'Number of Tranches', 'Investment Date', 'Last Tranche Date']])
+with portfolio_tab:
+    st.subheader("Investment Portfolio")
+    st.dataframe(data[['Client ID', 'Name', 'Asset Held Type', 'Capital (₹ Lakhs)', 'NAV', 'Strategy']])
+    st.plotly_chart(px.pie(data, names='Asset Held Type', title='Portfolio Allocation'))
 
-with sm_tab:
-    st.subheader("Service Manager Dashboard")
-    st.dataframe(data[['Client ID', 'Name', 'SM', 'Account Type', 'Bank Account', 'Custodian']])
+with perf_tab:
+    st.subheader("Performance Analytics")
+    perf_cols = ['Client ID', 'Name', 'TWR (%)', 'MWR (%)', 'NAV', 'Risk Profile']
+    st.dataframe(data[perf_cols])
+    st.plotly_chart(px.scatter(data, x='TWR (%)', y='MWR (%)', color='Risk Profile', hover_name='Name'))
 
-with dist_tab:
-    st.subheader("Distributor Dashboard")
-    st.dataframe(data[['Client ID', 'Name', 'Distributor', 'Capital (₹ Lakhs)', 'Country', 'NAV']])
+with txn_tab:
+    st.subheader("Transaction Activity")
+    st.dataframe(data[['Client ID', 'Name', 'Dividend Income (₹ Lakhs)', 'Interest Income (₹ Lakhs)', 'STCG (₹ Lakhs)', 'LTCG (₹ Lakhs)', 'TDS Amount', 'Third Party Txn Last 6M']])
 
-with ops_tab:
-    st.subheader("Operations Dashboard")
-    st.dataframe(data[['Client ID', 'Name', 'Custody Reconciliation Status', 'Asset Held Type', 'Third Party Txn Last 6M', 'Third Party Relationship (Last Txn)']])
+with goals_tab:
+    st.subheader("Client Goals (Simulated)")
+    st.info("Goal tracking is in beta simulation mode.")
 
-with comp_tab:
-    st.subheader("Compliance Dashboard")
-    st.dataframe(data[['Client ID', 'Name', 'AML Risk Score', 'Source of Wealth Verified', 'PEP', 'PIS No', 'PEP Status Date', 'Transaction Monitoring Flag']])
+with reports_tab:
+    st.subheader("Reports & Statements")
+    st.info("Report download functionality coming soon.")
 
-with fa_tab:
-    st.subheader("Fund Accounting Dashboard")
-    st.dataframe(data[['Client ID', 'Name', 'Dividend Income (₹ Lakhs)', 'Interest Income (₹ Lakhs)', 'STCG (₹ Lakhs)', 'LTCG (₹ Lakhs)', 'TDS Rate (%)', 'TDS Amount']])
+with profile_tab:
+    st.subheader("Client Profile")
+    st.dataframe(data[['Client ID', 'Name', 'Account Type', 'Bank Account', 'Country', 'PEP', 'Source of Wealth Verified']])
 
-with inv_tab:
-    st.subheader("Investor View")
-    st.dataframe(data[['Client ID', 'Name', 'Strategy', 'Risk Profile', 'Initial Capital (₹ Lakhs)', 'Capital (₹ Lakhs)', 'NAV', 'TWR (%)', 'MWR (%)', 'Tranche Details', 'TDS Amount']])
+with insights_tab:
+    st.subheader("Research & Insights")
+    st.info("Insights and strategy commentary coming soon.")
+
+with support_tab:
+    st.subheader("Support")
+    st.info("Chat, email, and RM contact integration coming soon.")
+
+with tools_tab:
+    st.subheader("Tools & Calculators")
+    st.info("SIP, Retirement, and Tax calculators will be available soon.")
